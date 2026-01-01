@@ -1,0 +1,192 @@
+# HDFS ConfigMap
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: hdfs-config
+data:
+  core-site.xml: |
+    <?xml version="1.0" encoding="UTF-8"?>
+    <configuration>
+      <property>
+        <name>fs.defaultFS</name>
+        <value>hdfs://hdfs-namenode-0.hdfs-namenode:8020</value>
+      </property>
+    </configuration>
+  hdfs-site.xml: |
+    <?xml version="1.0" encoding="UTF-8"?>
+    <configuration>
+      <property><name>dfs.namenode.rpc-bind-host</name><value>0.0.0.0</value></property>
+      <property><name>dfs.namenode.http-bind-host</name><value>0.0.0.0</value></property>
+      
+      <property><name>dfs.datanode.use.datanode.hostname</name><value>true</value></property>
+      <property><name>dfs.client.use.datanode.hostname</name><value>true</value></property>
+      
+      <property><name>dfs.replication</name><value>1</value></property>
+      <property><name>dfs.datanode.data.dir.perm</name><value>700</value></property>
+    </configuration>
+---
+# Headless Service NameNode
+apiVersion: v1
+kind: Service
+metadata:
+  name: hdfs-namenode
+spec:
+  clusterIP: None
+  selector:
+    app: hdfs-namenode
+  ports:
+  - name: rpc
+    port: 8020
+---
+# Headless Service DataNode
+apiVersion: v1
+kind: Service
+metadata:
+  name: hdfs-datanode
+spec:
+  clusterIP: None
+  selector:
+    app: hdfs-datanode
+  ports:
+  - name: data
+    port: 9866
+  - name: http
+    port: 9864
+---
+# NodePort Service NameNode
+apiVersion: v1
+kind: Service
+metadata:
+  name: hdfs-external
+spec:
+  type: NodePort
+  selector:
+    app: hdfs-namenode
+  ports:
+  - name: nn-rpc
+    port: 8020
+    nodePort: 30020
+  - name: nn-web
+    port: 9870
+    nodePort: 30870
+---
+# NodePort Service DataNode
+apiVersion: v1
+kind: Service
+metadata:
+  name: hdfs-dn-external
+spec:
+  type: NodePort
+  selector:
+    app: hdfs-datanode
+  ports:
+  - name: dn-data
+    port: 9866
+    nodePort: 30866
+  - name: dn-web
+    port: 9864
+    nodePort: 30864
+  - name: dn-ipc
+    port: 9867
+    nodePort: 30867
+---
+# StatefulSet NameNode
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: hdfs-namenode
+spec:
+  serviceName: "hdfs-namenode"
+  replicas: 1
+  selector:
+    matchLabels:
+      app: hdfs-namenode
+  template:
+    metadata:
+      labels:
+        app: hdfs-namenode
+    spec:
+      containers:
+      - name: namenode
+        image: bde2020/hadoop-namenode:2.0.0-hadoop3.2.1-java8
+        env:
+        - name: CLUSTER_NAME
+          value: "bigdata"
+        - name: ENSURE_NAMENODE_DIR
+          value: "/hadoop/dfs/name"
+        ports:
+        - containerPort: 8020
+        - containerPort: 9870
+        volumeMounts:
+        - name: hdfs-config-vol
+          mountPath: /etc/hadoop/core-site.xml
+          subPath: core-site.xml
+        - name: hdfs-config-vol
+          mountPath: /etc/hadoop/hdfs-site.xml
+          subPath: hdfs-site.xml
+        - name: nn-storage
+          mountPath: /hadoop/dfs/name
+      volumes:
+      - name: hdfs-config-vol
+        configMap:
+          name: hdfs-config
+      nodeSelector:
+        kubernetes.io/hostname: k3d-bigdata-agent-0
+  volumeClaimTemplates:
+  - metadata:
+      name: nn-storage
+    spec:
+      accessModes: [ "ReadWriteOnce" ]
+      resources:
+        requests:
+          storage: 2Gi
+---
+# StatefulSet DataNode
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: hdfs-datanode
+spec:
+  serviceName: "hdfs-datanode"
+  replicas: 1
+  selector:
+    matchLabels:
+      app: hdfs-datanode
+  template:
+    metadata:
+      labels:
+        app: hdfs-datanode
+    spec:
+      containers:
+      - name: datanode
+        image: bde2020/hadoop-datanode:2.0.0-hadoop3.2.1-java8
+        env:
+        - name: CLUSTER_NAME
+          value: "bigdata"
+        ports:
+        - containerPort: 9866
+        - containerPort: 9864
+        - containerPort: 9867
+        volumeMounts:
+        - name: hdfs-config-vol
+          mountPath: /etc/hadoop/core-site.xml
+          subPath: core-site.xml
+        - name: hdfs-config-vol
+          mountPath: /etc/hadoop/hdfs-site.xml
+          subPath: hdfs-site.xml
+        - name: dn-storage
+          mountPath: /hadoop/dfs/data
+      volumes:
+      - name: hdfs-config-vol
+        configMap:
+          name: hdfs-config
+      nodeSelector:
+        kubernetes.io/hostname: k3d-bigdata-agent-1
+  volumeClaimTemplates:
+  - metadata:
+      name: dn-storage
+    spec:
+      accessModes: [ "ReadWriteOnce" ]
+      resources:
+        requests:
+          storage: 10Gi
