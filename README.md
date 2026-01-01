@@ -48,3 +48,31 @@ chmod +x ./setup.sh
 1. Kiểm tra trạng thái các Pod: `kubectl get pods`
 2. Kiểm tra kết nối tới Kafka từ xa `ncat -zv bigdata-server 9092`
 3. Kiểm tra API Elasticsearch `curl http://bigdata-server:9200`
+
+## 4. Vận hành Data Producer
+Hệ thống bao gồm một module Producer để đẩy dữ liệu giả lập từ file CSV vào Kafka.
+
+### Cấu trúc
+- **Source Code**: `src/kafka_producer.py` - Script Python đọc CSV và gửi tin nhắn đến Kafka.
+- **Dữ liệu**: `data-sources/covid_0.csv` - File dữ liệu nguồn.
+- **Manifest**: `k8s-manifests/producer.yaml` - Job Kubernetes chạy Producer.
+- **Runner Script**: `run_producer.sh` - Script tự động hóa việc deploy và nạp dữ liệu.
+
+### Cách chạy
+Để bắt đầu quá trình đẩy dữ liệu, chạy lệnh sau:
+
+```bash
+bash run_producer.sh
+```
+
+Script này sẽ thực hiện các bước:
+1. Xóa Job cũ nếu đang chạy.
+2. Tạo ConfigMap mới từ code trong `src/kafka_producer.py`.
+3. Deploy Job lên Kubernetes.
+4. Chờ Pod sẵn sàng.
+5. Copy file `data-sources/covid_0.csv` vào Pod để kích hoạt quá trình xử lý.
+6. Hiển thị log output.
+
+**Lưu ý:**
+- Producer được cấu hình để gửi dữ liệu vào topic `covid-raw`.
+- Bạn có thể chỉnh sửa logic gửi tin (tốc độ, format) trong file `src/kafka_producer.py`.

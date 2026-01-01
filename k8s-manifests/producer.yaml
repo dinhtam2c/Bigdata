@@ -1,0 +1,44 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: covid-producer-job
+spec:
+  template:
+    spec:
+      containers:
+        - name: producer
+          image: python:3.9-slim
+          command: ["/bin/bash", "-c"]
+          args:
+            # Script logic:
+            # 1. Cài thư viện
+            # 2. Chờ file dữ liệu xuất hiện (do user copy vào)
+            # 3. Chạy python script (được mount từ ConfigMap)
+            - |
+              pip install kafka-python
+
+              echo "Waiting for data file at /app/data/covid_0.csv..."
+              while [ ! -f /app/data/covid_0.csv ]; do sleep 2; done
+              echo "Data file found! Starting processing..."
+
+              python /app/code/kafka_producer.py
+          env:
+            - name: BOOTSTRAP_SERVERS
+              value: "kafka:9092"
+            - name: TOPIC_NAME
+              value: "covid-raw"
+            - name: DATA_FILE
+              value: "/app/data/covid_0.csv"
+          volumeMounts:
+            - name: code-volume
+              mountPath: /app/code
+            - name: data-volume
+              mountPath: /app/data
+      volumes:
+        - name: code-volume
+          configMap:
+            name: producer-script
+        - name: data-volume
+          emptyDir: {}
+      restartPolicy: OnFailure
+  backoffLimit: 1
