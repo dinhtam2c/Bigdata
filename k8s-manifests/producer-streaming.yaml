@@ -1,27 +1,32 @@
-apiVersion: batch/v1
-kind: Job
+apiVersion: apps/v1
+kind: Deployment
 metadata:
-  name: covid-producer-job
+  name: covid-producer-streaming
+  labels:
+    app: covid-producer-streaming
 spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: covid-producer-streaming
   template:
+    metadata:
+      labels:
+        app: covid-producer-streaming
     spec:
       containers:
         - name: producer
           image: python:3.9-slim
           command: ["/bin/bash", "-c"]
           args:
-            # Script logic:
-            # 1. Cài thư viện
-            # 2. Chờ file dữ liệu xuất hiện (do user copy vào)
-            # 3. Chạy python script (được mount từ ConfigMap)
             - |
-              pip install kafka-python
-
-              echo "Waiting for data file at /app/data/covid_0.csv..."
+              pip install kafka-python && \
+              # Wait for data file
               while [ ! -f /app/data/covid_0.csv ]; do sleep 2; done
-              echo "Data file found! Starting processing..."
-
-              python -u /app/code/kafka_producer.py
+              echo "Data found. Starting streaming..."
+              # Chạy script. Khi script kết thúc (hết file), process exit.
+              # Kubernetes Deployment sẽ tự restart pod -> Loop vô hạn.
+              python -u /app/code/kafka_producer_streaming.py
           env:
             - name: BOOTSTRAP_SERVERS
               value: "kafka:9092"
@@ -29,6 +34,8 @@ spec:
               value: "covid-raw"
             - name: DATA_FILE
               value: "/app/data/covid_0.csv"
+            - name: DAY_DELAY
+              value: "5.0"
           volumeMounts:
             - name: code-volume
               mountPath: /app/code
@@ -37,8 +44,6 @@ spec:
       volumes:
         - name: code-volume
           configMap:
-            name: producer-script
+            name: producer-streaming-script
         - name: data-volume
           emptyDir: {}
-      restartPolicy: OnFailure
-  backoffLimit: 1

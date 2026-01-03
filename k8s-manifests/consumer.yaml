@@ -1,0 +1,44 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: consumer
+  labels:
+    app: consumer
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: consumer
+  template:
+    metadata:
+      labels:
+        app: consumer
+    spec:
+      containers:
+        - name: consumer
+          image: python:3.9-slim
+          command: ["/bin/bash", "-c"]
+          args:
+            - |
+              pip install kafka-python hdfs && \
+              python -u /app/code/kafka_consumer.py
+          env:
+            - name: BOOTSTRAP_SERVERS
+              value: "kafka:9092"
+            - name: TOPIC_NAME
+              value: "covid-raw"
+            - name: HDFS_URL
+              value: "http://hdfs-namenode-0.hdfs-namenode.default.svc.cluster.local:9870"
+            - name: HDFS_PATH
+              value: "/covid/raw"
+            - name: BATCH_SIZE
+              value: "500"
+            - name: BATCH_TIMEOUT
+              value: "30"
+          volumeMounts:
+            - name: code-volume
+              mountPath: /app/code
+      volumes:
+        - name: code-volume
+          configMap:
+            name: consumer-script
