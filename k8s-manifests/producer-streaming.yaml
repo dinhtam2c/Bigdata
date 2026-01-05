@@ -1,0 +1,49 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: covid-producer-streaming
+  labels:
+    app: covid-producer-streaming
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: covid-producer-streaming
+  template:
+    metadata:
+      labels:
+        app: covid-producer-streaming
+    spec:
+      containers:
+        - name: producer
+          image: python:3.9-slim
+          command: ["/bin/bash", "-c"]
+          args:
+            - |
+              pip install kafka-python && \
+              # Wait for data file
+              while [ ! -f /app/data/covid_0.csv ]; do sleep 2; done
+              echo "Data found. Starting streaming..."
+              # Chạy script. Khi script kết thúc (hết file), process exit.
+              # Kubernetes Deployment sẽ tự restart pod -> Loop vô hạn.
+              python -u /app/code/kafka_producer_streaming.py
+          env:
+            - name: BOOTSTRAP_SERVERS
+              value: "kafka:9092"
+            - name: TOPIC_NAME
+              value: "covid-raw"
+            - name: DATA_FILE
+              value: "/app/data/covid_0.csv"
+            - name: DAY_DELAY
+              value: "5.0"
+          volumeMounts:
+            - name: code-volume
+              mountPath: /app/code
+            - name: data-volume
+              mountPath: /app/data
+      volumes:
+        - name: code-volume
+          configMap:
+            name: producer-streaming-script
+        - name: data-volume
+          emptyDir: {}
