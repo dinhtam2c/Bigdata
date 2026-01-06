@@ -1,38 +1,61 @@
 #!/bin/bash
 
-JOB_NAME="covid-producer-job"
+# Usage: 
+#   bash run_producer.sh           # Batch mode (gửi tất cả nhanh)
+#   bash run_producer.sh streaming # Streaming mode (gửi từng ngày)
 
-# 1. Cleanup: Kiểm tra và xóa Job cũ nếu tồn tại
-echo "Checking for existing job..."
-if kubectl get job $JOB_NAME &>/dev/null; then
-  echo "Found existing job '$JOB_NAME'. Deleting..."
-  kubectl delete job $JOB_NAME
-  
-  # Chờ cho Pod cũ bị xóa hẳn
-  echo "Waiting for old pods to terminate..."
-  kubectl wait --for=delete pod -l job-name=$JOB_NAME --timeout=60s
+MODE=${1:-batch}
+
+if [ "$MODE" = "streaming" ]; then
+  echo "=== STREAMING MODE: Gửi từng ngày (5s/ngày) ==="
+  DEPLOYMENT_NAME="covid-producer-streaming"
+  SCRIPT_FILE="kafka_producer_streaming.py"
+  CONFIGMAP_NAME="producer-streaming-script"
+  MANIFEST_FILE="producer-streaming.yaml"
+  POD_LABEL="app=covid-producer-streaming"
+else
+  echo "=== BATCH MODE: Gửi toàn bộ dữ liệu nhanh nhất ==="
+  JOB_NAME="covid-producer-job"
+  SCRIPT_FILE="kafka_producer.py"
+  CONFIGMAP_NAME="producer-script"
+  MANIFEST_FILE="producer.yaml"
+  POD_LABEL="job-name=covid-producer-job"
 fi
 
-# 2. Update ConfigMap từ file code bên ngoài
-# Xóa ConfigMap cũ trước để đảm bảo cập nhật mới nhất
-kubectl delete configmap producer-script --ignore-not-found
-echo "Creating ConfigMap from src/kafka_producer.py..."
-kubectl create configmap producer-script --from-file=kafka_producer.py=src/kafka_producer.py
+# 1. Cleanup
+if [ "$MODE" = "streaming" ]; then
+  if kubectl get deployment $DEPLOYMENT_NAME &>/dev/null; then
+    echo "Deleting old deployment..."
+    kubectl delete deployment $DEPLOYMENT_NAME
+    sleep 3
+  fi
+else
+  if kubectl get job $JOB_NAME &>/dev/null; then
+    echo "Deleting old job..."
+    kubectl delete job $JOB_NAME
+    kubectl wait --for=delete pod -l $POD_LABEL --timeout=60s
+  fi
+fi
 
-# 3. Apply Job Manifest
-echo "Deploying Job..."
-kubectl apply -f k8s-manifests/producer.yaml
+# 2. Update ConfigMap
+kubectl delete configmap $CONFIGMAP_NAME --ignore-not-found
+echo "Creating ConfigMap from src/$SCRIPT_FILE..."
+kubectl create configmap $CONFIGMAP_NAME --from-file=${SCRIPT_FILE%.*}.py=src/$SCRIPT_FILE
 
-echo "Waiting for Job Pod to be created..."
+# 3. Apply Manifest
+echo "Deploying $MODE producer..."
+kubectl apply -f k8s-manifests/$MANIFEST_FILE
+
+echo "Waiting for Pod to be created..."
 sleep 5
 
 # 4. Tìm Pod và copy dữ liệu
-POD_NAME=$(kubectl get pods -l job-name=$JOB_NAME -o jsonpath="{.items[0].metadata.name}")
+POD_NAME=$(kubectl get pods -l $POD_LABEL -o jsonpath="{.items[0].metadata.name}")
 
 if [ -z "$POD_NAME" ]; then
-  echo "Error: Could not find Pod for job $JOB_NAME. Retrying..."
+  echo "Error: Could not find Pod. Retrying..."
   sleep 5
-  POD_NAME=$(kubectl get pods -l job-name=$JOB_NAME -o jsonpath="{.items[0].metadata.name}")
+  POD_NAME=$(kubectl get pods -l $POD_LABEL -o jsonpath="{.items[0].metadata.name}")
 fi
 
 if [ -z "$POD_NAME" ]; then

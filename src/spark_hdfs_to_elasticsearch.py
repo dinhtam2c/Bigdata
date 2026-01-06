@@ -102,7 +102,7 @@ create_index_if_not_exists()
 
 # Đọc dữ liệu từ HDFS
 print("\nĐang đọc dữ liệu từ HDFS...")
-df = spark.read.json("hdfs://hdfs-namenode-0.hdfs-namenode:8020/covid/raw/2026/01/06/")
+df = spark.read.json("hdfs://hdfs-namenode-0.hdfs-namenode:8020/covid/raw/*/*/*/*.jsonl")
 
 print("Đang xử lý và chuyển đổi kiểu dữ liệu...")
 
@@ -110,17 +110,11 @@ print("Đang xử lý và chuyển đổi kiểu dữ liệu...")
 df.printSchema()
 print(f"Column names: {df.columns}")
 
-# Get the Date_reported column by referencing df.columns
-date_col = df.columns[7]  # Date_reported is at index 7
-print(f"Date column: '{date_col}' (repr: {repr(date_col)})")
-
-# Use F.col with the column name from the list to avoid resolution issues
-
 df_cleaned = df.select(
     F.col("Country"),
     F.col("Country_code"),
     F.col("WHO_region"),
-    F.col(date_col).alias("Date_reported"),
+    F.col("Date_reported"), 
     F.when(F.trim(F.col("New_cases")) == "", 0).otherwise(F.col("New_cases").cast(IntegerType())).alias("New_cases"),
     F.when(F.trim(F.col("Cumulative_cases")) == "", 0).otherwise(F.col("Cumulative_cases").cast(LongType())).alias("Cumulative_cases"),
     F.when(F.trim(F.col("New_deaths")) == "", 0).otherwise(F.col("New_deaths").cast(IntegerType())).alias("New_deaths"),
