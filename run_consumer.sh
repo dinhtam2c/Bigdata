@@ -3,7 +3,7 @@
 # 1. Update ConfigMap cho Consumer
 kubectl delete configmap consumer-script --ignore-not-found
 echo "Creating ConfigMap from src/kafka_consumer.py..."
-kubectl create configmap consumer-script --from-file=kafka_consumer.py=src/kafka_to_hdfs.py
+kubectl create configmap consumer-script --from-file=kafka_consumer.py=src/kafka_consumer.py
 
 # 2. Apply Deployment
 echo "Deploying Consumer..."

@@ -1,0 +1,42 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: spark-hdfs-to-es
+spec:
+  template:
+    spec:
+      securityContext:
+        runAsUser: 0  # Chạy với quyền root để pip install thành công
+      containers:
+      - name: spark-processor
+        image: apache/spark:4.1.0-python3
+        command: ["/bin/bash", "-c"]
+        args:
+          - |
+            # 1. Cài đặt thư viện với cache được chuyển vào /tmp
+            pip install elasticsearch==7.17.9 --quiet --no-cache-dir
+            
+            # 2. Chạy Spark submit với cấu hình HDFS chính xác
+            /opt/spark/bin/spark-submit \
+              --master spark://spark-master:7077 \
+              --deploy-mode client \
+              --driver-memory 1g \
+              --executor-memory 1g \
+              --conf spark.driver.host=$(hostname -i) \
+              --conf spark.driver.bindAddress=0.0.0.0 \
+              --conf spark.hadoop.fs.defaultFS=hdfs://hdfs-namenode-0.hdfs-namenode:8020 \
+              /app/code/spark_hdfs_to_elasticsearch.py
+        volumeMounts:
+          - name: code-volume
+            mountPath: /app/code
+        resources:
+          limits:
+            memory: "2Gi"
+          requests:
+            memory: "1Gi"
+      volumes:
+        - name: code-volume
+          configMap:
+            name: spark-script
+      restartPolicy: OnFailure
+  backoffLimit: 3
