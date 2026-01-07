@@ -7,7 +7,7 @@
 MODE=${1:-batch}
 
 if [ "$MODE" = "streaming" ]; then
-  echo "=== STREAMING MODE: Gửi từng ngày (5s/ngày) ==="
+  echo "=== STREAMING MODE: Gửi từng ngày (0.5s/ngày) ==="
   DEPLOYMENT_NAME="covid-producer-streaming"
   SCRIPT_FILE="kafka_producer_streaming.py"
   CONFIGMAP_NAME="producer-streaming-script"
