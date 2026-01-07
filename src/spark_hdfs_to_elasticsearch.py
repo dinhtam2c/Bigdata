@@ -110,6 +110,12 @@ print("Đang xử lý và chuyển đổi kiểu dữ liệu...")
 df.printSchema()
 print(f"Column names: {df.columns}")
 
+# Strip BOM từ column names nếu có
+for old_col in df.columns:
+    clean_col = old_col.lstrip('\ufeff')
+    if old_col != clean_col:
+        df = df.withColumnRenamed(old_col, clean_col)
+
 df_cleaned = df.select(
     F.col("Country"),
     F.col("Country_code"),
