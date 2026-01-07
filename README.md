@@ -105,8 +105,6 @@ bash run_spark_local.sh
 
 Spark sẽ đọc dữ liệu từ HDFS, xử lý và ghi kết quả vào Elasticsearch.
 
----
-
 ### 5.2. Trường hợp 2: Xử lý luồng giả lập (Streaming Mode)
 
 Dùng để mô phỏng dữ liệu thời gian thực, dữ liệu được gửi theo từng ngày và xử lý liên tục.
@@ -136,8 +134,6 @@ Spark CronJob sẽ tự động:
 * Cập nhật kết quả vào Elasticsearch
 
 **Chu kỳ chạy mặc định: mỗi 2 phút**
-
----
 
 ## 6. Quản lý tài nguyên và dọn dẹp hệ thống
 
