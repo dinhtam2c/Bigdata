@@ -22,27 +22,44 @@ k3d cluster create bigdata --servers 1 --agents 2 \
 kubectl apply -f k8s-manifests/
 
 # 4. Chờ cho các pod sẵn sàng
-echo "Waiting for pods to be ready..."
-kubectl wait --for=condition=Ready pods --all --namespace default --timeout=600s
+echo "Waiting for core infrastructure pods..."
+kubectl wait --for=condition=Ready pod -l app=kafka --timeout=300s
+kubectl wait --for=condition=Ready pod -l app=hdfs-namenode --timeout=300s
+kubectl wait --for=condition=Ready pod -l app=hdfs-datanode --timeout=300s
+kubectl wait --for=condition=Ready pod -l app=elasticsearch --timeout=300s
 
-# 5. Chờ HDFS NameNode sẵn sàng
-echo "Waiting for HDFS NameNode to be ready..."
+echo "Waiting for application pods..."
+kubectl wait --for=condition=Ready pod -l app=spark-master --timeout=120s 2>/dev/null || echo "Spark master not ready yet (non-critical)"
+kubectl wait --for=condition=Ready pod -l app=spark-worker --timeout=120s 2>/dev/null || echo "Spark worker not ready yet (non-critical)"
+kubectl wait --for=condition=Ready pod -l app=kibana --timeout=120s 2>/dev/null || echo "Kibana not ready yet (non-critical)"
+
+# 5. Chờ HDFS NameNode thoát safe mode
+echo "Waiting for HDFS NameNode (safe mode check)..."
+TIMEOUT=120
+ELAPSED=0
 until kubectl exec hdfs-namenode-0 -- hdfs dfsadmin -safemode get 2>/dev/null | grep -q "OFF"; do
-  echo "HDFS still in safe mode, waiting..."
-  sleep 5
-done
-echo "HDFS NameNode is ready!"
-
-# 6. Chờ Kafka Broker sẵn sàng
-echo "Waiting for Kafka broker to be ready..."
-for i in {1..30}; do
-  if kubectl exec kafka-0 -- /opt/kafka/bin/kafka-broker-api-versions.sh --bootstrap-server localhost:9092 &>/dev/null; then
-    echo "Kafka broker is ready!"
+  if [ $ELAPSED -ge $TIMEOUT ]; then
+    echo "WARNING: HDFS NameNode timeout after ${TIMEOUT}s, continuing anyway..."
     break
   fi
-  echo "Kafka not ready yet, waiting... ($i/30)"
-  sleep 5
+  sleep 3
+  ELAPSED=$((ELAPSED + 3))
 done
+echo "HDFS NameNode ready!"
+
+# 6. Chờ Kafka Broker sẵn sàng
+echo "Waiting for Kafka broker..."
+TIMEOUT=90
+ELAPSED=0
+until kubectl exec kafka-0 -- /opt/kafka/bin/kafka-broker-api-versions.sh --bootstrap-server localhost:9092 &>/dev/null; do
+  if [ $ELAPSED -ge $TIMEOUT ]; then
+    echo "ERROR: Kafka broker not ready after ${TIMEOUT}s"
+    exit 1
+  fi
+  sleep 3
+  ELAPSED=$((ELAPSED + 3))
+done
+echo "Kafka broker ready!"
 
 # 7. Tạo các topic Kafka
 TOPICS=("covid-test" "covid-raw" "covid-processed")
