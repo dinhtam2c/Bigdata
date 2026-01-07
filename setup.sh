@@ -62,7 +62,7 @@ done
 echo "Kafka broker ready!"
 
 # 7. Tạo các topic Kafka
-TOPICS=("covid-test" "covid-raw" "covid-processed")
+TOPICS=("covid-raw")
 
 for TOPIC in "${TOPICS[@]}"; do
   echo "Creating topic: $TOPIC"
