@@ -71,7 +71,11 @@ def send_to_elasticsearch(partition):
     # Tạo bulk request
     bulk_data = []
     for record in batch:
-        bulk_data.append(json.dumps({"index": {"_index": ES_INDEX}}))
+        # Tạo ID duy nhất từ Quốc gia và Ngày để tránh trùng lặp
+        doc_id = f"{record['Country']}_{record['Date_reported']}"
+        
+        # Thêm _id vào metadata của Elasticsearch
+        bulk_data.append(json.dumps({"index": {"_index": ES_INDEX, "_id": doc_id}}))
         bulk_data.append(json.dumps(record))
     
     bulk_body = "\n".join(bulk_data) + "\n"

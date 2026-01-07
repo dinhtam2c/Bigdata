@@ -3,8 +3,8 @@ kind: CronJob
 metadata:
   name: spark-hdfs-to-es-cron
 spec:
-  # Chạy mỗi 2 phút
-  schedule: "*/2 * * * *"
+  # Chạy mỗi 1 phút
+  schedule: "*/1 * * * *"
   successfulJobsHistoryLimit: 3
   failedJobsHistoryLimit: 1
   concurrencyPolicy: Forbid

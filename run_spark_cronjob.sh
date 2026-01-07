@@ -1,6 +1,6 @@
 #!/bin/bash
 
-echo "Deploying Spark CronJob (runs every 2 minutes)..."
+echo "Deploying Spark CronJob (runs every 1 minutes)..."
 
 # Update script
 kubectl delete configmap spark-script --ignore-not-found
@@ -13,7 +13,7 @@ kubectl apply -f k8s-manifests/spark-cronjob.yaml
 echo ""
 echo "✅ CronJob deployed successfully!"
 echo ""
-echo "CronJob will run every 2 minutes automatically."
+echo "CronJob will run every 1 minutes automatically."
 echo ""
 echo "Useful commands:"
 echo "  • View cronjob:        kubectl get cronjob"
