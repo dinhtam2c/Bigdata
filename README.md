@@ -147,8 +147,6 @@ Hệ thống cần tối thiểu **~20 GB dung lượng trống** để khởi t
 | HDFS DataNode    | ~10 GB     |
 | Kafka + NameNode | ~4 GB      |
 
----
-
 ### 6.2. Dọn dẹp hệ thống sau khi thực hành
 
 #### Dừng Spark CronJob
