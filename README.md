@@ -77,9 +77,6 @@ Script này sẽ thực hiện các bước:
 - Producer được cấu hình để gửi dữ liệu vào topic `covid-raw`.
 - Bạn có thể chỉnh sửa logic gửi tin (tốc độ, format) trong file `src/kafka_producer.py`.
 
-Ok, mình đã **sửa lại toàn bộ phần 5 và 6 cho đúng chuẩn Markdown + đúng dạng lệnh bash**, bỏ hết mấy chỗ bị dính “Copy code / bash” sai format.
-Bạn **chỉ cần copy nguyên khối bên dưới và thay thế từ mục 5 trở đi trong README** là dùng được ngay ✅
-
 ## 5. Quy trình vận hành chi tiết
 Hệ thống hỗ trợ hai chế độ xử lý dữ liệu chính: **Batch Mode** và **Streaming Mode**.
 
