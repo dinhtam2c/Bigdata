@@ -76,3 +76,100 @@ Script này sẽ thực hiện các bước:
 **Lưu ý:**
 - Producer được cấu hình để gửi dữ liệu vào topic `covid-raw`.
 - Bạn có thể chỉnh sửa logic gửi tin (tốc độ, format) trong file `src/kafka_producer.py`.
+
+Ok, mình đã **sửa lại toàn bộ phần 5 và 6 cho đúng chuẩn Markdown + đúng dạng lệnh bash**, bỏ hết mấy chỗ bị dính “Copy code / bash” sai format.
+Bạn **chỉ cần copy nguyên khối bên dưới và thay thế từ mục 5 trở đi trong README** là dùng được ngay ✅
+
+## 5. Quy trình vận hành chi tiết
+Hệ thống hỗ trợ hai chế độ xử lý dữ liệu chính: **Batch Mode** và **Streaming Mode**.
+
+### 5.1. Trường hợp 1: Xử lý hàng loạt (Batch Mode)
+Sử dụng khi cần nạp toàn bộ dữ liệu lịch sử và xử lý một lần duy nhất.
+
+#### Bước 1: Gửi dữ liệu vào Kafka
+```bash
+bash run_producer.sh
+````
+
+#### Bước 2: Lưu dữ liệu từ Kafka vào HDFS
+
+```bash
+bash run_consumer.sh
+```
+
+#### Bước 3: Chạy Spark Job xử lý Batch
+
+```bash
+bash run_spark_local.sh
+```
+
+Spark sẽ đọc dữ liệu từ HDFS, xử lý và ghi kết quả vào Elasticsearch.
+
+---
+
+### 5.2. Trường hợp 2: Xử lý luồng giả lập (Streaming Mode)
+
+Dùng để mô phỏng dữ liệu thời gian thực, dữ liệu được gửi theo từng ngày và xử lý liên tục.
+
+#### Bước 1: Gửi dữ liệu Streaming vào Kafka
+
+```bash
+bash run_producer.sh streaming
+```
+
+#### Bước 2: Khởi động Kafka Consumer ghi dữ liệu vào HDFS
+
+```bash
+bash run_consumer.sh
+```
+
+#### Bước 3: Tự động hóa Spark Streaming bằng CronJob
+
+```bash
+bash run_spark_cronjob.sh
+```
+
+Spark CronJob sẽ tự động:
+
+* Quét dữ liệu mới trong HDFS
+* Xử lý dữ liệu
+* Cập nhật kết quả vào Elasticsearch
+
+**Chu kỳ chạy mặc định: mỗi 2 phút**
+
+---
+
+## 6. Quản lý tài nguyên và dọn dẹp hệ thống
+
+### 6.1. Yêu cầu lưu trữ
+
+Hệ thống cần tối thiểu **~20 GB dung lượng trống** để khởi tạo Persistent Volumes:
+
+| Thành phần       | Dung lượng |
+| ---------------- | ---------- |
+| Elasticsearch    | ~5 GB      |
+| HDFS DataNode    | ~10 GB     |
+| Kafka + NameNode | ~4 GB      |
+
+---
+
+### 6.2. Dọn dẹp hệ thống sau khi thực hành
+
+#### Dừng Spark CronJob
+
+```bash
+bash stop_spark_cronjob.sh
+```
+
+#### Xóa toàn bộ Kubernetes Cluster (k3d)
+
+```bash
+k3d cluster delete bigdata
+```
+
+#### Dọn dẹp tài nguyên Docker dư thừa
+
+```bash
+docker system prune -a --volumes
+```
+
