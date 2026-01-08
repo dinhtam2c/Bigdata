@@ -126,7 +126,7 @@ bash run_producer.sh streaming
 # Bước 3: Consumer lưu dữ liệu vào HDFS
 bash run_consumer.sh
 
-# Bước 4: Spark CronJob tự động xử lý mỗi 2 phút
+# Bước 4: Spark CronJob tự động xử lý mỗi 1 phút
 bash run_spark_cronjob.sh
 
 # Bước 5: Truy cập Kibana Dashboard
