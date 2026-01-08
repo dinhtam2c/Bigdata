@@ -27,7 +27,7 @@ GROUP_ID = 'hdfs-final-v1'
 def get_hdfs_client():
     log.info(f"Connecting to HDFS at {HDFS_URL}...")
     try:
-        client = InsecureClient(HDFS_URL, user=HDFS_USER, timeout=10)
+        client = InsecureClient(HDFS_URL, user=HDFS_USER, timeout=20)
         client.list('/') # Test connect
         log.info("Connected to HDFS successfully!")
         return client
@@ -45,7 +45,7 @@ def get_kafka_consumer():
             enable_auto_commit=True,
             group_id=GROUP_ID,
             value_deserializer=lambda x: json.loads(x.decode('utf-8')),
-            request_timeout_ms=20000,
+            request_timeout_ms=30000,
             max_poll_records=BATCH_SIZE
         )
         log.info("Connected to Kafka successfully!")
