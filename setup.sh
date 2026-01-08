@@ -19,8 +19,10 @@ k3d cluster create bigdata --servers 1 --agents 2 \
   --k3s-arg "--disable=traefik@server:0"
 
 # 3. Áp dụng các manifest
-# Đảm bảo bạn đã ở đúng thư mục chứa folder k8s-manifests
-kubectl apply -f k8s-manifests/
+kubectl apply -f k8s-manifests/kafka.yaml
+kubectl apply -f k8s-manifests/hdfs.yaml
+kubectl apply -f k8s-manifests/spark.yaml
+kubectl apply -f k8s-manifests/elastic-kibana.yaml
 
 # 4. Chờ cho các pod sẵn sàng
 echo "Waiting for core infrastructure pods..."
