@@ -79,8 +79,7 @@ spec:
               mountPath: /var/lib/kafka/data
           resources:
             limits:
-              memory: "600Mi"
-              cpu: "500m"
+              memory: "1000Mi"
       nodeSelector:
         kubernetes.io/hostname: k3d-bigdata-agent-0
   volumeClaimTemplates:
