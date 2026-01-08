@@ -5,6 +5,7 @@ k3d cluster delete bigdata 2>/dev/null
 
 # 2. Tạo cluster mới
 k3d cluster create bigdata --servers 1 --agents 2 \
+  --api-port 0.0.0.0:6443 \
   -p "9092:30092@agent:0" \
   -p "9870:30870@agent:0" \
   -p "8020:30020@agent:0" \
