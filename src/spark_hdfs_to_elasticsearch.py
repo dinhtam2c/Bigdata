@@ -30,6 +30,20 @@ ES_SEGMENTATION_INDEX = "covid-segmentation-country"
 ES_QUALITY_INDEX = "covid-quality"
 ES_RANKINGS_INDEX = "covid-rankings"
 
+def json_safe_record(record: dict) -> dict:
+    """
+    Convert all date / datetime fields to ISO string
+    """
+    out = {}
+    for k, v in record.items():
+        if v is None:
+            out[k] = None
+        elif hasattr(v, "isoformat"):  # date or datetime
+            out[k] = v.isoformat()
+        else:
+            out[k] = v
+    return out
+
 def create_index_if_not_exists():
     try:
         # Kiểm tra index đã tồn tại chưa
@@ -89,7 +103,8 @@ def send_to_elasticsearch(partition):
         
         # Thêm _id vào metadata của Elasticsearch
         bulk_data.append(json.dumps({"index": {"_index": ES_INDEX, "_id": doc_id}}))
-        bulk_data.append(json.dumps(record))
+        safe_record = json_safe_record(record)
+        bulk_data.append(json.dumps(safe_record))
     
     bulk_body = "\n".join(bulk_data) + "\n"
     
@@ -166,7 +181,8 @@ def send_to_es_index(index_name: str, id_cols: list[str], partition):
             meta["index"]["_id"] = doc_id
 
         bulk_data.append(json.dumps(meta))
-        bulk_data.append(json.dumps(record))
+        safe_record = json_safe_record(record)
+        bulk_data.append(json.dumps(safe_record))
 
     bulk_body = "\n".join(bulk_data) + "\n"
 
