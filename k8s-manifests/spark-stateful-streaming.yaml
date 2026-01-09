@@ -53,6 +53,8 @@ spec:
               value: "20"
             - name: RT_SUFFIX
               value: "_rt"
+            - name: SEND_RAW
+              value: "true"
           volumeMounts:
             - name: code-volume
               mountPath: /app/code
