@@ -34,8 +34,7 @@ echo "  HDFS cleared"
 echo ""
 echo "3. Clearing Elasticsearch indices..."
 ES_POD=$(kubectl get pod -l app=elasticsearch -o jsonpath='{.items[0].metadata.name}')
-kubectl exec $ES_POD -- curl -X DELETE "localhost:9200/covid-data" 2>/dev/null || echo "  No indices to delete"
-echo "  Elasticsearch indices cleared"
+kubectl exec $ES_POD -- sh -c 'curl -s localhost:9200/_cat/indices/covid-*?h=index | xargs -r -I {} curl -X DELETE localhost:9200/{}'
 
 echo ""
 echo "=== Data clearing completed! ==="
