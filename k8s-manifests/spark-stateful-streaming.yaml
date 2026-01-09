@@ -1,0 +1,69 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: spark-stateful-streaming
+  labels:
+    app: spark-stateful-streaming
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: spark-stateful-streaming
+  template:
+    metadata:
+      labels:
+        app: spark-stateful-streaming
+    spec:
+      securityContext:
+        runAsUser: 0
+      containers:
+        - name: spark
+          image: apache/spark:4.1.0-python3
+          command: ["/bin/bash", "-c"]
+          args:
+            - |
+              pip install -q --no-cache-dir pandas pyarrow && \
+              /opt/spark/bin/spark-submit \
+                --master spark://spark-master:7077 \
+                --deploy-mode client \
+                --driver-memory 1g \
+                --executor-memory 1g \
+                --conf spark.driver.host=$(hostname -i) \
+                --conf spark.driver.bindAddress=0.0.0.0 \
+                --conf spark.hadoop.fs.defaultFS=hdfs://hdfs-namenode-0.hdfs-namenode:8020 \
+                --conf spark.sql.execution.arrow.pyspark.enabled=true \
+                --packages org.apache.spark:spark-sql-kafka-0-10_2.13:4.1.0,org.apache.spark:spark-token-provider-kafka-0-10_2.13:4.1.0 \
+                /app/code/spark_kafka_stateful_realtime.py
+          env:
+            - name: BOOTSTRAP_SERVERS
+              value: "kafka:9092"
+            - name: TOPIC_NAME
+              value: "covid-raw"
+            - name: ES_HOST
+              value: "http://elasticsearch:9200"
+            - name: TRIGGER_INTERVAL
+              value: "20 seconds"
+            - name: STARTING_OFFSETS
+              value: "latest"
+            - name: CHECKPOINT_BASE
+              value: "hdfs://hdfs-namenode-0.hdfs-namenode:8020/covid/checkpoints/rt_stateful"
+            - name: ROLLING_KEEP_DAYS
+              value: "45"
+            - name: TOP_N
+              value: "20"
+            - name: RT_SUFFIX
+              value: "_rt"
+            - name: SEND_RAW
+              value: "true"
+          volumeMounts:
+            - name: code-volume
+              mountPath: /app/code
+          resources:
+            limits:
+              memory: "3Gi"
+            requests:
+              memory: "1Gi"
+      volumes:
+        - name: code-volume
+          configMap:
+            name: spark-stateful-script
