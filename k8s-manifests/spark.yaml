@@ -71,7 +71,11 @@ spec:
         - name: SPARK_CONF_DIR
           value: "/opt/spark/conf"
         resources:
+          requests:
+            cpu: "100m"
+            memory: "512Mi"
           limits:
+            cpu: "300m"
             memory: "1Gi"
 ---
 # Deployment Spark Worker
@@ -101,5 +105,9 @@ spec:
         - name: SPARK_WORKER_MEMORY
           value: "1G"
         resources:
+          requests:
+            cpu: "200m"
+            memory: "1Gi"
           limits:
+            cpu: "600m"
             memory: "2Gi"
