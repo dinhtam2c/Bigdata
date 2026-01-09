@@ -265,8 +265,10 @@ else:
 # Đọc dữ liệu từ HDFS (luôn đọc để có df_cleaned)
 # =========================
 print("\nĐang đọc dữ liệu từ HDFS...")
-df = spark.read.json("hdfs://hdfs-namenode-0.hdfs-namenode:8020/covid/raw/*/*/*/*.jsonl")
-
+df = spark.read.format("json") \
+    .option("mode", "PERMISSIVE") \
+    .option("recursiveFileLookup", "true") \
+    .load("hdfs://hdfs-namenode-0.hdfs-namenode:8020/covid/raw/")
 print("Đang xử lý và chuyển đổi kiểu dữ liệu...")
 
 df.printSchema()
