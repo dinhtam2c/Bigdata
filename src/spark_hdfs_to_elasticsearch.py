@@ -39,8 +39,6 @@ print(f"RUN_LEVEL={RUN_LEVEL} => WILL_RUN={sorted(LEVELS)}")
 # Khởi tạo Spark
 spark = SparkSession.builder \
     .appName("COVID HDFS to Elasticsearch") \
-    .config("spark.executor.memory", "512m") \
-    .config("spark.driver.memory", "512m") \
     .getOrCreate()
     
 spark.sparkContext.setLogLevel("WARN")

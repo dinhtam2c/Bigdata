@@ -101,13 +101,13 @@ spec:
         - name: SPARK_MASTER_PORT
           value: "7077"
         - name: SPARK_WORKER_CORES
-          value: "1"
+          value: "2"
         - name: SPARK_WORKER_MEMORY
-          value: "1G"
+          value: "3G"
         resources:
           requests:
-            cpu: "200m"
-            memory: "1Gi"
+            cpu: "1"
+            memory: "3Gi"
           limits:
-            cpu: "600m"
-            memory: "2Gi"
+            cpu: "2"
+            memory: "4Gi"

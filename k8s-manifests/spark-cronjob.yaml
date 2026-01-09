@@ -26,8 +26,10 @@ spec:
                 /opt/spark/bin/spark-submit \
                   --master spark://spark-master:7077 \
                   --deploy-mode client \
-                  --driver-memory 1g \
-                  --executor-memory 1g \
+                  --total-executor-cores 1 \
+                  --executor-cores 1 \
+                  --driver-memory 1024m \
+                  --executor-memory 1500m \
                   --conf spark.driver.host=$(hostname -i) \
                   --conf spark.driver.bindAddress=0.0.0.0 \
                   --conf spark.hadoop.fs.defaultFS=hdfs://hdfs-namenode-0.hdfs-namenode:8020 \
@@ -37,8 +39,10 @@ spec:
                 mountPath: /app/code
             resources:
               limits:
-                memory: "2Gi"
+                cpu: "1"
+                memory: "1.5Gi"
               requests:
+                cpu: "300m"
                 memory: "1Gi"
           volumes:
             - name: code-volume
