@@ -20,7 +20,7 @@ spec:
           command: ["/bin/bash", "-c"]
           args:
             - |
-              pip install kafka-python hdfs && \
+              pip install --no-cache-dir kafka-python hdfs && \
               python -u /app/code/kafka_consumer.py
           env:
             - name: BOOTSTRAP_SERVERS

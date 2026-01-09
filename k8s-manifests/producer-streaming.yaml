@@ -14,7 +14,7 @@ spec:
           command: ["/bin/bash", "-c"]
           args:
             - |
-              pip install kafka-python && \
+              pip install --no-cache-dir kafka-python && \
               # Wait for data file
               while [ ! -f /app/data/covid_0.csv ]; do sleep 2; done
               echo "Data found. Starting streaming..."
