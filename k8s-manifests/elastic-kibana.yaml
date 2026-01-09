@@ -107,6 +107,12 @@ spec:
         env:
         - name: ELASTICSEARCH_HOSTS
           value: "http://elasticsearch:9200"
+        - name: XPACK_ENCRYPTEDSAVEDOBJECTS_ENCRYPTIONKEY
+          value: "750057d54977dd14bc31cf9584e05729"
+        - name: XPACK_REPORTING_ENCRYPTIONKEY
+          value: "5c0d000a84dee09ea35d36bdf1d5f66d"
+        - name: XPACK_SECURITY_ENCRYPTIONKEY
+          value: "254079c627cb1be3bb2afc93584eb9d6"
         resources:
           limits:
             memory: "1Gi"
