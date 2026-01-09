@@ -32,7 +32,7 @@ spec:
             - name: HDFS_PATH
               value: "/covid/raw"
             - name: BATCH_SIZE
-              value: "500"
+              value: "200"
             - name: BATCH_TIMEOUT
               value: "30"
           volumeMounts:
