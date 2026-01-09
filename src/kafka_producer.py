@@ -41,7 +41,7 @@ def process_data(producer):
         sys.exit(1)
 
     try:
-        with open(DATA_FILE, mode='r', encoding='utf-8') as file:
+        with open(DATA_FILE, mode='r', encoding='utf-8-sig') as file:
             reader = csv.DictReader(file)
             count = 0
             

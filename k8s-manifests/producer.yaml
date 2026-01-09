@@ -15,7 +15,7 @@ spec:
             # 2. Chờ file dữ liệu xuất hiện (do user copy vào)
             # 3. Chạy python script (được mount từ ConfigMap)
             - |
-              pip install kafka-python
+              pip install --no-cache-dir kafka-python
 
               echo "Waiting for data file at /app/data/covid_0.csv..."
               while [ ! -f /app/data/covid_0.csv ]; do sleep 2; done

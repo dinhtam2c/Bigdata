@@ -27,7 +27,7 @@ GROUP_ID = 'hdfs-final-v1'
 def get_hdfs_client():
     log.info(f"Connecting to HDFS at {HDFS_URL}...")
     try:
-        client = InsecureClient(HDFS_URL, user=HDFS_USER, timeout=20)
+        client = InsecureClient(HDFS_URL, user=HDFS_USER, timeout=10)
         client.list('/') # Test connect
         log.info("Connected to HDFS successfully!")
         return client
@@ -45,7 +45,7 @@ def get_kafka_consumer():
             enable_auto_commit=True,
             group_id=GROUP_ID,
             value_deserializer=lambda x: json.loads(x.decode('utf-8')),
-            request_timeout_ms=30000,
+            request_timeout_ms=20000,
             max_poll_records=BATCH_SIZE
         )
         log.info("Connected to Kafka successfully!")
@@ -58,26 +58,43 @@ def flush_to_hdfs(client, buffer):
     if not buffer:
         return True
 
-    # Thêm timestamp có microsecond để tránh trùng tên file
-    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S_%f")
+    # Group records by Date_reported
+    # Format expected in record: "YYYY-MM-DD" -> Target HDFS path: "YYYY/MM/DD"
+    from collections import defaultdict
+    groups = defaultdict(list)
     
-    # Partition theo ngày để quản lý dữ liệu tốt hơn cho Batch Job sau này
-    date_part = datetime.now().strftime("%Y/%m/%d")
-    hdfs_dir = f"{HDFS_PATH}/{date_part}"
-    filename = f"{hdfs_dir}/covid_data_{timestamp}.jsonl"
+    for record in buffer:
+        date_str = record.get('Date_reported', 'unknown')
+        if date_str and date_str != 'unknown':
+            # Convert 2020-01-04 -> 2020/01/04
+            date_part = date_str.replace('-', '/')
+        else:
+            # Fallback to current date if missing
+            date_part = datetime.now().strftime("%Y/%m/%d")
+        
+        groups[date_part].append(record)
+
+    all_success = True
     
-    # Chuyển đổi list dict thành chuỗi JSON lines
-    data_str = "\n".join([json.dumps(record, ensure_ascii=False) for record in buffer])
-    
-    try:
-        client.makedirs(hdfs_dir) # Đảm bảo thư mục tồn tại
-        with client.write(filename, encoding='utf-8') as writer:
-            writer.write(data_str)
-        log.info(f"Saved {len(buffer)} records to {filename}")
-        return True
-    except Exception as e:
-        log.error(f"Error writing to HDFS: {e}")
-        return False
+    for date_part, records in groups.items():
+        # Thêm timestamp có microsecond để tránh trùng tên file
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S_%f")
+        hdfs_dir = f"{HDFS_PATH}/{date_part}"
+        filename = f"{hdfs_dir}/covid_data_{timestamp}.jsonl"
+        
+        # Chuyển đổi list dict thành chuỗi JSON lines
+        data_str = "\n".join([json.dumps(record, ensure_ascii=False) for record in records])
+        
+        try:
+            client.makedirs(hdfs_dir) # Đảm bảo thư mục tồn tại
+            with client.write(filename, encoding='utf-8') as writer:
+                writer.write(data_str)
+            log.info(f"Saved {len(records)} records for {date_part} to {filename}")
+        except Exception as e:
+            log.error(f"Error writing to HDFS for {date_part}: {e}")
+            all_success = False
+            
+    return all_success
 
 running = True
 def signal_handler(sig, frame):

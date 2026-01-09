@@ -62,9 +62,6 @@ def main():
                 
                 # Delay giả lập chuyển ngày
                 time.sleep(DAY_DELAY)
-            
-            print(f"Finished one pass over historical data. Restarting in 10s...")
-            time.sleep(10)
 
     except Exception as e:
         print(f"Error during streaming loop: {e}")

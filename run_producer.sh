@@ -8,7 +8,7 @@ MODE=${1:-batch}
 
 if [ "$MODE" = "streaming" ]; then
   echo "=== STREAMING MODE: Gửi từng ngày (0.5s/ngày) ==="
-  DEPLOYMENT_NAME="covid-producer-streaming"
+  JOB_NAME="covid-producer-streaming"
   SCRIPT_FILE="kafka_producer_streaming.py"
   CONFIGMAP_NAME="producer-streaming-script"
   MANIFEST_FILE="producer-streaming.yaml"
@@ -22,19 +22,11 @@ else
   POD_LABEL="job-name=covid-producer-job"
 fi
 
-# 1. Cleanup
-if [ "$MODE" = "streaming" ]; then
-  if kubectl get deployment $DEPLOYMENT_NAME &>/dev/null; then
-    echo "Deleting old deployment..."
-    kubectl delete deployment $DEPLOYMENT_NAME
-    sleep 3
-  fi
-else
-  if kubectl get job $JOB_NAME &>/dev/null; then
-    echo "Deleting old job..."
-    kubectl delete job $JOB_NAME
-    kubectl wait --for=delete pod -l $POD_LABEL --timeout=60s
-  fi
+# 1. Cleanup old job
+if kubectl get job $JOB_NAME &>/dev/null; then
+  echo "Deleting old job..."
+  kubectl delete job $JOB_NAME
+  kubectl wait --for=delete pod -l $POD_LABEL --timeout=60s 2>/dev/null || true
 fi
 
 # 2. Update ConfigMap
@@ -44,7 +36,7 @@ kubectl create configmap $CONFIGMAP_NAME --from-file=${SCRIPT_FILE%.*}.py=src/$S
 
 # 3. Apply Manifest
 echo "Deploying $MODE producer..."
-kubectl apply -f k8s-manifests/$MANIFEST_FILE
+kubectl create -f k8s-manifests/$MANIFEST_FILE
 
 echo "Waiting for Pod to be created..."
 sleep 5
