@@ -1,14 +1,8 @@
-apiVersion: apps/v1
-kind: Deployment
+apiVersion: batch/v1
+kind: Job
 metadata:
   name: covid-producer-streaming
-  labels:
-    app: covid-producer-streaming
 spec:
-  replicas: 1
-  selector:
-    matchLabels:
-      app: covid-producer-streaming
   template:
     metadata:
       labels:
@@ -24,8 +18,7 @@ spec:
               # Wait for data file
               while [ ! -f /app/data/covid_0.csv ]; do sleep 2; done
               echo "Data found. Starting streaming..."
-              # Chạy script. Khi script kết thúc (hết file), process exit.
-              # Kubernetes Deployment sẽ tự restart pod -> Loop vô hạn.
+              # Chạy script một lần rồi kết thúc
               python -u /app/code/kafka_producer_streaming.py
           env:
             - name: BOOTSTRAP_SERVERS
@@ -47,3 +40,5 @@ spec:
             name: producer-streaming-script
         - name: data-volume
           emptyDir: {}
+      restartPolicy: OnFailure
+  backoffLimit: 1
