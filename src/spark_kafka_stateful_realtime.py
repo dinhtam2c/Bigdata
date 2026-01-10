@@ -47,6 +47,27 @@ BULK_DOCS_PER_FLUSH = int(os.getenv("BULK_DOCS_PER_FLUSH", "2000"))
 
 INDEX_SETTINGS = {"number_of_shards": 1, "number_of_replicas": 0}
 
+COMMON_MAPPINGS = {
+    "properties": {
+        "Country": {"type": "keyword"},
+        "Country_code": {"type": "keyword"},
+        "WHO_region": {"type": "keyword"},
+        "Date_reported": {"type": "date"},
+
+        "New_cases": {"type": "long"},
+        "New_deaths": {"type": "long"},
+        "Cumulative_cases": {"type": "long"},
+        "Cumulative_deaths": {"type": "long"},
+
+        "Total_new_cases": {"type": "long"},
+        "Total_new_deaths": {"type": "long"},
+        "Countries_reported": {"type": "integer"},
+
+        "event_ts": {"type": "date"}
+    }
+}
+
+
 # Which outputs to send
 SEND_RAW = os.getenv("SEND_RAW", "false").lower() == "true"
 SEND_COUNTRY_DAILY = os.getenv("SEND_COUNTRY_DAILY", "true").lower() == "true"
@@ -161,18 +182,25 @@ _INDICES_READY = False
 
 
 def create_index_if_missing(index_name: str) -> None:
-    # HEAD /{index}
     try:
-        status, _ = _http_request("HEAD", f"{ES_HOST}/{index_name}", timeout=ES_TIMEOUT_SECS, retries=1)
+        status, _ = _http_request(
+            "HEAD",
+            f"{ES_HOST}/{index_name}",
+            timeout=ES_TIMEOUT_SECS,
+            retries=1,
+        )
         if status == 200:
             return
     except RuntimeError as e:
-        # HEAD may raise; allow 404
         if "404" not in str(e):
             print(f"[ES] HEAD {index_name} error: {e}")
             return
 
-    body = {"settings": INDEX_SETTINGS, "mappings": {}}
+    body = {
+        "settings": INDEX_SETTINGS,
+        "mappings": COMMON_MAPPINGS,
+    }
+
     try:
         status, _ = _http_request(
             "PUT",
@@ -185,11 +213,12 @@ def create_index_if_missing(index_name: str) -> None:
         print(f"[ES] Create {index_name} failed: {e!r}")
 
 
+
 def ensure_indices() -> None:
     global _INDICES_READY
     if _INDICES_READY:
         return
-    for idx in [ES_INDEX_RAW, ES_COUNTRY_DAILY_INDEX, ES_REGION_DAILY_INDEX, ES_GLOBAL_DAILY_INDEX]:
+    for idx in [ES_COUNTRY_DAILY_INDEX, ES_REGION_DAILY_INDEX, ES_GLOBAL_DAILY_INDEX]:
         create_index_if_missing(idx)
     _INDICES_READY = True
     print(f"[RT] Indices ready, suffix={RT_SUFFIX!r}")
