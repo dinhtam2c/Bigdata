@@ -42,7 +42,7 @@ def get_kafka_consumer():
             TOPIC_NAME,
             bootstrap_servers=BOOTSTRAP_SERVERS,
             auto_offset_reset='earliest',
-            enable_auto_commit=True,
+            enable_auto_commit=False,
             group_id=GROUP_ID,
             value_deserializer=lambda x: json.loads(x.decode('utf-8')),
             request_timeout_ms=20000,
@@ -54,47 +54,27 @@ def get_kafka_consumer():
         log.error(f"Error connecting to Kafka: {e}")
         return None
 
-def flush_to_hdfs(client, buffer):
-    if not buffer:
+def flush_date_batch_to_hdfs(client, date_part, records):
+    """Write a batch of records for a specific date to HDFS"""
+    if not records:
         return True
-
-    # Group records by Date_reported
-    # Format expected in record: "YYYY-MM-DD" -> Target HDFS path: "YYYY/MM/DD"
-    from collections import defaultdict
-    groups = defaultdict(list)
+        
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S_%f")
+    hdfs_dir = f"{HDFS_PATH}/{date_part}"
+    filename = f"{hdfs_dir}/covid_data_{timestamp}.jsonl"
     
-    for record in buffer:
-        date_str = record.get('Date_reported', 'unknown')
-        if date_str and date_str != 'unknown':
-            # Convert 2020-01-04 -> 2020/01/04
-            date_part = date_str.replace('-', '/')
-        else:
-            # Fallback to current date if missing
-            date_part = datetime.now().strftime("%Y/%m/%d")
-        
-        groups[date_part].append(record)
-
-    all_success = True
+    # Convert list of dicts to JSON lines
+    data_str = "\n".join([json.dumps(record, ensure_ascii=False) for record in records])
     
-    for date_part, records in groups.items():
-        # Thêm timestamp có microsecond để tránh trùng tên file
-        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S_%f")
-        hdfs_dir = f"{HDFS_PATH}/{date_part}"
-        filename = f"{hdfs_dir}/covid_data_{timestamp}.jsonl"
-        
-        # Chuyển đổi list dict thành chuỗi JSON lines
-        data_str = "\n".join([json.dumps(record, ensure_ascii=False) for record in records])
-        
-        try:
-            client.makedirs(hdfs_dir) # Đảm bảo thư mục tồn tại
-            with client.write(filename, encoding='utf-8') as writer:
-                writer.write(data_str)
-            log.info(f"Saved {len(records)} records for {date_part} to {filename}")
-        except Exception as e:
-            log.error(f"Error writing to HDFS for {date_part}: {e}")
-            all_success = False
-            
-    return all_success
+    try:
+        client.makedirs(hdfs_dir)
+        with client.write(filename, encoding='utf-8') as writer:
+            writer.write(data_str)
+        log.info(f"Saved {len(records)} records for {date_part} to {filename}")
+        return True
+    except Exception as e:
+        log.error(f"Error writing to HDFS for {date_part}: {e}")
+        return False
 
 running = True
 def signal_handler(sig, frame):
@@ -125,40 +105,75 @@ def main():
                 time.sleep(5)
                 continue
         
-        # Main processing loop
+        # Main processing loop - buffer per date
+        current_date = None
         buffer = []
-        last_flush_time = time.time()
+        last_activity_time = time.time()
         
-        log.info(f"Starting loop. Batch: {BATCH_SIZE}, Timeout: {BATCH_TIMEOUT}s")
+        log.info(f"Starting loop. Max records per file: {BATCH_SIZE}, Timeout: {BATCH_TIMEOUT}s")
         
         try:
             while running:
-                # Poll message
+                # Poll messages
                 msg_pack = consumer.poll(timeout_ms=1000)
                 
                 if msg_pack:
                     for tp, messages in msg_pack.items():
                         for message in messages:
-                            buffer.append(message.value)
+                            record = message.value
+                            date_str = record.get('Date_reported', 'unknown')
+                            
+                            if date_str and date_str != 'unknown':
+                                # Convert 2020-01-04 -> year=2020/month=01/day=04 (Hive partitioning)
+                                parts = date_str.split('-')
+                                date_part = f"year={parts[0]}/month={parts[1]}/day={parts[2]}"
+                            else:
+                                # Fallback to current date if missing
+                                now = datetime.now()
+                                date_part = f"year={now.year}/month={now.month:02d}/day={now.day:02d}"
+                            
+                            # Detect date change -> flush previous date
+                            if current_date and date_part != current_date and buffer:
+                                log.info(f"Date changed from {current_date} to {date_part}. Flushing {len(buffer)} records...")
+                                if not flush_date_batch_to_hdfs(hdfs_client, current_date, buffer):
+                                    log.error("Failed to write to HDFS. Reconnecting...")
+                                    hdfs_client = None
+                                    break
+                                consumer.commit()  # Commit offset after successful write
+                                log.info("Offset committed after date change flush")
+                                buffer = []
+                            
+                            # Update current date and add record
+                            current_date = date_part
+                            buffer.append(record)
+                            last_activity_time = time.time()
+                            
+                            # Flush if batch size reached (control max file size)
+                            if len(buffer) >= BATCH_SIZE:
+                                log.info(f"Batch size reached ({BATCH_SIZE}). Flushing for date {current_date}...")
+                                if not flush_date_batch_to_hdfs(hdfs_client, current_date, buffer):
+                                    log.error("Failed to write to HDFS. Reconnecting...")
+                                    hdfs_client = None
+                                    break
+                                consumer.commit()  # Commit offset after successful write
+                                log.info("Offset committed after batch flush")
+                                buffer = []
+                                last_activity_time = time.time()
                 
+                # Check timeout - flush if no new data for BATCH_TIMEOUT seconds
                 current_time = time.time()
-                time_diff = current_time - last_flush_time
+                time_diff = current_time - last_activity_time
                 
-                # Check điều kiện flush
-                if len(buffer) >= BATCH_SIZE or (len(buffer) > 0 and time_diff >= BATCH_TIMEOUT):
-                    log.info(f"Flushing buffer: {len(buffer)} records...")
-                    if flush_to_hdfs(hdfs_client, buffer):
-                        buffer = []
-                        last_flush_time = current_time
-                    else:
-                        # Nếu lỗi ghi HDFS, break ra để reconnect
+                if buffer and time_diff >= BATCH_TIMEOUT:
+                    log.info(f"Timeout reached ({BATCH_TIMEOUT}s). Flushing {len(buffer)} records for date {current_date}...")
+                    if not flush_date_batch_to_hdfs(hdfs_client, current_date, buffer):
                         log.error("Failed to write to HDFS. Reconnecting...")
                         hdfs_client = None
-                        break 
-                
-                if not msg_pack and not buffer:
-                    # Idle check log
-                    pass
+                        break
+                    consumer.commit()  # Commit offset after successful write
+                    log.info("Offset committed after timeout flush")
+                    buffer = []
+                    last_activity_time = current_time
 
         except Exception as e:
             log.error(f"Unexpected error in loop: {e}")
