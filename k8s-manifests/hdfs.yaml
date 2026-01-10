@@ -117,6 +117,13 @@ spec:
         ports:
         - containerPort: 8020
         - containerPort: 9870
+        resources:
+          requests:
+            cpu: "500m"
+            memory: "1Gi"
+          limits:
+            cpu: "500m"
+            memory: "1Gi"
         volumeMounts:
         - name: hdfs-config-vol
           mountPath: /etc/hadoop/core-site.xml
@@ -167,6 +174,13 @@ spec:
         - containerPort: 9866
         - containerPort: 9864
         - containerPort: 9867
+        resources:
+          requests:
+            cpu: "500m"
+            memory: "1Gi"
+          limits:
+            cpu: "500m"
+            memory: "1Gi"
         volumeMounts:
         - name: hdfs-config-vol
           mountPath: /etc/hadoop/core-site.xml

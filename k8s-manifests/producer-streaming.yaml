@@ -29,6 +29,13 @@ spec:
               value: "/app/data/covid_0.csv"
             - name: DAY_DELAY
               value: "0.5"
+          resources:
+            requests:
+              cpu: "100m"
+              memory: "384Mi"
+            limits:
+              cpu: "200m"
+              memory: "512Mi"
           volumeMounts:
             - name: code-volume
               mountPath: /app/code

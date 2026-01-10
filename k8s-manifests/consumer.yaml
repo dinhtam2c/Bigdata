@@ -32,9 +32,16 @@ spec:
             - name: HDFS_PATH
               value: "/covid/raw"
             - name: BATCH_SIZE
-              value: "200"
+              value: "500"
             - name: BATCH_TIMEOUT
               value: "30"
+          resources:
+            requests:
+              cpu: "100m"
+              memory: "384Mi"
+            limits:
+              cpu: "200m"
+              memory: "512Mi"
           volumeMounts:
             - name: code-volume
               mountPath: /app/code

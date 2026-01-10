@@ -78,7 +78,11 @@ spec:
             - name: kafka-storage
               mountPath: /var/lib/kafka/data
           resources:
+            requests:
+              cpu: "300m"
+              memory: "768Mi"
             limits:
+              cpu: "500m"
               memory: "1000Mi"
       nodeSelector:
         kubernetes.io/hostname: k3d-bigdata-agent-0
