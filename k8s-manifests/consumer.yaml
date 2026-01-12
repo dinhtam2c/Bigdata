@@ -4,7 +4,6 @@ metadata:
   name: consumer
   labels:
     app: consumer
-    component: data-pipeline
 spec:
   replicas: 1
   selector:
@@ -14,7 +13,6 @@ spec:
     metadata:
       labels:
         app: consumer
-        component: data-pipeline
     spec:
       containers:
         - name: consumer
@@ -22,64 +20,32 @@ spec:
           command: ["/bin/bash", "-c"]
           args:
             - |
-              set -e
-              echo "Installing dependencies..."
-              pip install --no-cache-dir kafka-python hdfs
-              
-              echo "Starting consumer..."
+              pip install --no-cache-dir kafka-python hdfs && \
               python -u /app/code/kafka_consumer.py
           env:
-            # Kafka Configuration
             - name: BOOTSTRAP_SERVERS
               value: "kafka:9092"
             - name: TOPIC_NAME
               value: "covid-raw"
-            - name: GROUP_ID
-              value: "hdfs-consumer-v1"
-            
-            # HDFS Configuration
             - name: HDFS_URL
               value: "http://hdfs-namenode-0.hdfs-namenode.default.svc.cluster.local:9870"
-            - name: HDFS_USER
-              value: "root"
             - name: HDFS_PATH
               value: "/covid/raw"
-            
-            # Processing Configuration
             - name: BATCH_SIZE
               value: "500"
             - name: BATCH_TIMEOUT
               value: "30"
-            
-            # Retry Configuration
-            - name: MAX_RETRIES
-              value: "3"
-            - name: RETRY_DELAY
-              value: "5"
           resources:
             requests:
               cpu: "100m"
-              memory: "256Mi"
+              memory: "384Mi"
             limits:
-              cpu: "500m"
+              cpu: "200m"
               memory: "512Mi"
           volumeMounts:
             - name: code-volume
               mountPath: /app/code
-              readOnly: true
-          # Health checks
-          livenessProbe:
-            exec:
-              command:
-                - /bin/sh
-                - -c
-                - pgrep -f kafka_consumer.py
-            initialDelaySeconds: 30
-            periodSeconds: 30
-            timeoutSeconds: 5
-            failureThreshold: 3
       volumes:
         - name: code-volume
           configMap:
             name: consumer-script
-      restartPolicy: Always
