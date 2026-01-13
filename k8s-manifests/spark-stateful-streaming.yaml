@@ -44,7 +44,7 @@ spec:
             - name: TRIGGER_INTERVAL
               value: "20 seconds"
             - name: STARTING_OFFSETS
-              value: "latest"
+              value: "earliest"
             - name: CHECKPOINT_BASE
               value: "hdfs://hdfs-namenode-0.hdfs-namenode:8020/covid/checkpoints/rt_stateful"
             - name: ROLLING_KEEP_DAYS

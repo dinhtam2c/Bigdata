@@ -28,7 +28,7 @@ ES_HOST = os.getenv("ES_HOST", "http://elasticsearch:9200")
 RT_SUFFIX = os.getenv("RT_SUFFIX", "_rt")
 
 TRIGGER_INTERVAL = os.getenv("TRIGGER_INTERVAL", "20 seconds")
-STARTING_OFFSETS = os.getenv("STARTING_OFFSETS", "latest")
+STARTING_OFFSETS = os.getenv("STARTING_OFFSETS", "earliest")
 FAIL_ON_DATA_LOSS = os.getenv("FAIL_ON_DATA_LOSS", "false")
 
 CHECKPOINT_LOCATION = os.getenv(
