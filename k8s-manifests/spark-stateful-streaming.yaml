@@ -14,6 +14,8 @@ spec:
       labels:
         app: spark-stateful-streaming
     spec:
+      nodeSelector:
+        kubernetes.io/hostname: k3d-bigdata-server-0
       securityContext:
         runAsUser: 0
       containers:

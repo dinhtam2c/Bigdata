@@ -6,16 +6,16 @@ k3d cluster delete bigdata 2>/dev/null
 # 2. Tạo cluster mới
 k3d cluster create bigdata --servers 1 --agents 2 \
   --api-port 0.0.0.0:6443 \
-  -p "9092:30092@agent:0" \
-  -p "9870:30870@agent:0" \
-  -p "8020:30020@agent:0" \
-  -p "9866:30866@agent:1" \
-  -p "9864:30864@agent:1" \
-  -p "9867:30867@agent:1" \
-  -p "8080:30080@agent:0" \
-  -p "7077:30077@agent:0" \
-  -p "9200:32000@agent:0" \
-  -p "5601:32601@agent:0" \
+  -p "9092:30092@loadbalancer" \
+  -p "9870:30870@loadbalancer" \
+  -p "8020:30020@loadbalancer" \
+  -p "9866:30866@loadbalancer" \
+  -p "9864:30864@loadbalancer" \
+  -p "9867:30867@loadbalancer" \
+  -p "8080:30080@loadbalancer" \
+  -p "7077:30077@loadbalancer" \
+  -p "9200:32000@loadbalancer" \
+  -p "5601:32601@loadbalancer" \
   --k3s-arg "--disable=traefik@server:0"
 
 # 3. Áp dụng các manifest
@@ -73,7 +73,7 @@ for TOPIC in "${TOPICS[@]}"; do
     --topic $TOPIC \
     --bootstrap-server localhost:9092 \
     --partitions 1 \
-    --replication-factor 1 \
+    --replication-factor 2 \
     --config retention.ms=86400000
 done
 

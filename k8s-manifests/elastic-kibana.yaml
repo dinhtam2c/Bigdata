@@ -43,6 +43,8 @@ spec:
       labels:
         app: elasticsearch
     spec:
+      nodeSelector:
+        kubernetes.io/hostname: k3d-bigdata-agent-1
       containers:
       - name: elasticsearch
         image: elasticsearch:9.2.3
@@ -101,6 +103,8 @@ spec:
       labels:
         app: kibana
     spec:
+      nodeSelector:
+        kubernetes.io/hostname: k3d-bigdata-server-0
       containers:
       - name: kibana
         image: kibana:9.2.3

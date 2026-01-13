@@ -20,7 +20,7 @@ for TOPIC in "${TOPICS[@]}"; do
     --topic $TOPIC \
     --bootstrap-server localhost:9092 \
     --partitions 1 \
-    --replication-factor 1 \
+    --replication-factor 2 \
     --config retention.ms=86400000
 done
 

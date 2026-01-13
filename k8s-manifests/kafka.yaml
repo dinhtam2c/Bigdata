@@ -5,6 +5,7 @@ metadata:
   name: kafka
 spec:
   clusterIP: None
+  publishNotReadyAddresses: true
   selector:
     app: kafka
   ports:
@@ -35,7 +36,7 @@ metadata:
   name: kafka
 spec:
   serviceName: "kafka"
-  replicas: 1
+  replicas: 2
   selector:
     matchLabels:
       app: kafka
@@ -44,12 +45,30 @@ spec:
       labels:
         app: kafka
     spec:
+      affinity:
+        nodeAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            nodeSelectorTerms:
+            - matchExpressions:
+              - key: node-role.kubernetes.io/control-plane
+                operator: DoesNotExist
+        podAntiAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+          - labelSelector:
+              matchExpressions:
+              - key: app
+                operator: In
+                values:
+                - kafka
+            topologyKey: "kubernetes.io/hostname"
       containers:
         - name: kafka
           image: apache/kafka:4.1.1
           env:
             - name: KAFKA_NODE_ID
-              value: "0"
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.labels['apps.kubernetes.io/pod-index']
             - name: KAFKA_PROCESS_ROLES
               value: "controller,broker"
             - name: KAFKA_LISTENERS
@@ -59,19 +78,23 @@ spec:
             - name: KAFKA_INTER_BROKER_LISTENER_NAME
               value: "PLAINTEXT"
             - name: KAFKA_CONTROLLER_QUORUM_VOTERS
-              value: "0@kafka-0.kafka.default.svc.cluster.local:9093"
+              value: "0@kafka-0.kafka.default.svc.cluster.local:9093,1@kafka-1.kafka.default.svc.cluster.local:9093"
             - name: KAFKA_CONTROLLER_LISTENER_NAMES
               value: "CONTROLLER"
             - name: KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR
-              value: "1"
+              value: "2"
             - name: KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR
-              value: "1"
+              value: "2"
             - name: KAFKA_TRANSACTION_STATE_LOG_MIN_ISR
-              value: "1"
+              value: "2"
+            - name: POD_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.name
             - name: KAFKA_ADVERTISED_LISTENERS
-              value: "PLAINTEXT://kafka-0.kafka.default.svc.cluster.local:9092,EXTERNAL://bigdata-server:9092"
+              value: "PLAINTEXT://$(POD_NAME).kafka.default.svc.cluster.local:9092,EXTERNAL://localhost:9092"
             - name: KAFKA_HEAP_OPTS
-              value: "-Xmx384M -Xms384M"
+              value: "-Xmx512M -Xms512M"
             - name: KAFKA_LOG_DIRS
               value: "/var/lib/kafka/data"
           volumeMounts:
@@ -84,8 +107,6 @@ spec:
             limits:
               cpu: "500m"
               memory: "1000Mi"
-      nodeSelector:
-        kubernetes.io/hostname: k3d-bigdata-agent-0
   volumeClaimTemplates:
     - metadata:
         name: kafka-storage

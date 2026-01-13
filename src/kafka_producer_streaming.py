@@ -31,7 +31,10 @@ def main():
     try:
         producer = KafkaProducer(
             bootstrap_servers=[BOOTSTRAP_SERVERS],
-            value_serializer=json_serializer
+            value_serializer=json_serializer,
+            acks='all',
+            retries=5,
+            retry_backoff_ms=500
         )
         print("Kafka Producer connected!")
     except Exception as e:

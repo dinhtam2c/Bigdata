@@ -84,7 +84,7 @@ kind: Deployment
 metadata:
   name: spark-worker
 spec:
-  replicas: 1
+  replicas: 2
   selector:
     matchLabels:
       app: spark-worker
@@ -93,6 +93,22 @@ spec:
       labels:
         app: spark-worker
     spec:
+      affinity:
+        nodeAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            nodeSelectorTerms:
+            - matchExpressions:
+              - key: node-role.kubernetes.io/control-plane
+                operator: DoesNotExist
+        podAntiAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+          - labelSelector:
+              matchExpressions:
+              - key: app
+                operator: In
+                values:
+                - spark-worker
+            topologyKey: "kubernetes.io/hostname"
       containers:
       - name: spark-worker
         image: apache/spark:4.1.0-python3
@@ -101,13 +117,13 @@ spec:
         - name: SPARK_MASTER_PORT
           value: "7077"
         - name: SPARK_WORKER_CORES
-          value: "2"
+          value: "1"
         - name: SPARK_WORKER_MEMORY
-          value: "3G"
+          value: "1500M"
         resources:
           requests:
             cpu: "1"
-            memory: "3Gi"
+            memory: "1Gi"
           limits:
             cpu: "2"
-            memory: "4Gi"
+            memory: "1.5Gi"
