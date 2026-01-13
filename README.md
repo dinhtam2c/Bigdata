@@ -113,8 +113,11 @@ Hệ thống có 2 luồng xử lý song song:
 
 ### 6.3. Các bước triển khai
 ```bash
-# Bước 1: Triển khai infrastructure (chỉ chạy lần đầu)
+# Bước 0: Triển khai infrastructure (chỉ chạy lần đầu)
 bash setup.sh
+
+# Bước 1: Khởi động Consumer để lưu dữ liệu vào HDFS
+bash run_consumer.sh
 
 # Bước 2: Khởi động Spark CronJob (chạy định kỳ mỗi 10 phút)
 bash run_spark_cronjob.sh
