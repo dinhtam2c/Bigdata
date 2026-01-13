@@ -74,179 +74,182 @@ bash setup.sh
 
 ### 6.1. Sơ đồ kiến trúc
 ```
-CSV Data (covid_0.csv) 
-  ↓
-Producer 
-  ↓
-Kafka (topic: covid-raw)
-  ↓
-Consumer 
-  ↓
-HDFS 
-  ↓
-Spark Processing
-  ↓
-Elasticsearch ←→ Kibana UI
+                    CSV Data (covid_0.csv)
+                            ↓
+                Producer Streaming (gửi theo ngày)
+                            ↓
+                    Kafka (topic: covid-raw)
+                            ↓
+            ┌───────────────┴───────────────┐
+            ↓                               ↓
+        Consumer                    Spark Stateful Streaming
+            ↓                         (xử lý real-time)
+          HDFS                              ↓
+            ↓                               ↓
+    Spark CronJob                           ↓
+  (batch processing)                        ↓
+            ↓                               ↓
+            └───────────────┬───────────────┘
+                            ↓
+                    Elasticsearch
+                            ↓
+                       Kibana UI
 ```
 
 ### 6.2. Luồng dữ liệu
-1. **Producer** đọc file CSV và gửi từng bản ghi vào **Kafka** topic `covid-raw`
+Hệ thống có 2 luồng xử lý song song:
+
+**Luồng Batch (qua HDFS):**
+1. **Producer Streaming** đọc file CSV và gửi dữ liệu theo từng ngày vào **Kafka** topic `covid-raw`
 2. **Consumer** lắng nghe Kafka và ghi dữ liệu vào **HDFS**
-3. **Spark** đọc dữ liệu từ HDFS, xử lý và ghi kết quả vào **Elasticsearch**
-4. **Kibana** hiển thị Dashboard từ dữ liệu trong Elasticsearch
+3. **Spark CronJob** định kỳ xử lý dữ liệu từ HDFS và ghi vào **Elasticsearch**
 
-### 6.3. Batch Mode
-Chạy nhanh toàn bộ pipeline trong chế độ Batch:
+**Luồng Real-time (trực tiếp từ Kafka):**
+1. **Producer Streaming** gửi dữ liệu vào **Kafka** topic `covid-raw`
+2. **Spark Stateful Streaming** đọc trực tiếp từ Kafka, xử lý real-time và ghi vào **Elasticsearch**
+
+**Visualization:**
+- **Kibana** hiển thị Dashboard từ dữ liệu trong Elasticsearch (cả batch và real-time)
+
+### 6.3. Các bước triển khai
 ```bash
 # Bước 1: Triển khai infrastructure (chỉ chạy lần đầu)
 bash setup.sh
 
-# Bước 2: Gửi dữ liệu vào Kafka
-bash run_producer.sh
-
-# Bước 3: Consumer lưu dữ liệu vào HDFS
-bash run_consumer.sh
-
-# Bước 4: Spark xử lý và đẩy vào Elasticsearch
-bash run_spark_local.sh
-
-# Bước 5: Truy cập Kibana Dashboard
-# http://bigdata-server:5601
-```
-
-### 6.4. Streaming Mode
-Chạy nhanh toàn bộ pipeline trong chế độ Streaming:
-```bash
-# Bước 1: Triển khai infrastructure (chỉ chạy lần đầu)
-bash setup.sh
-
-# Bước 2: Gửi dữ liệu streaming vào Kafka (gửi từng ngày)
-bash run_producer.sh streaming
-
-# Bước 3: Consumer lưu dữ liệu vào HDFS
-bash run_consumer.sh
-
-# Bước 4: Spark CronJob tự động xử lý mỗi 1 phút
+# Bước 2: Khởi động Spark CronJob (chạy định kỳ mỗi 10 phút)
 bash run_spark_cronjob.sh
 
+# Bước 3: Khởi động Spark Stateful Streaming (xử lý real-time)
+bash run_spark_stateful_streaming.sh
+
+# Bước 4: Gửi dữ liệu streaming vào Kafka (gửi từng ngày)
+bash run_producer.sh streaming
+
 # Bước 5: Truy cập Kibana Dashboard
 # http://bigdata-server:5601
 ```
 
-### 6.5. Các lệnh giám sát hữu ích
+### 6.4. Các lệnh giám sát hữu ích
 ```bash
 # Xem trạng thái tất cả Pod
 kubectl get pods
 
-# Xem log của Producer
-kubectl logs -l job-name=covid-producer-job -f
-
 # Xem log của Consumer
 kubectl logs -l app=consumer -f
 
-# Xem log của Spark Job
-kubectl logs -l job-name=spark-hdfs-to-es -f
-
-# Xem CronJob status
+# Xem log của Spark CronJob
 kubectl get cronjob
+kubectl logs -l job-name=spark-hdfs-to-es-cron --tail=50 -f
+
+# Xem log của Spark Stateful Streaming
+kubectl logs -l app=spark-stateful-streaming -f
+
+# Xem log của Producer Streaming
+kubectl logs -l app=covid-producer-streaming -f
 
 # Xem HDFS Web UI
 # http://bigdata-server:9870
 
 # Xem Spark Web UI
 # http://bigdata-server:8080
+
+# Dừng Spark CronJob
+bash stop_spark_cronjob.sh
 ```
 
 ## 7. Vận hành chi tiết
 
-### 7.1. Data Producer
-Hệ thống bao gồm một module Producer để đẩy dữ liệu giả lập từ file CSV vào Kafka.
+### 7.1. Consumer
+Kafka Consumer lắng nghe topic `covid-raw` và ghi dữ liệu vào HDFS.
 
 #### Cấu trúc
-- **Source Code**: `src/kafka_producer.py` - Script Python đọc CSV và gửi tin nhắn đến Kafka.
-- **Dữ liệu**: `data-sources/covid_0.csv` - File dữ liệu nguồn.
-- **Manifest**: `k8s-manifests/producer.yaml` - Job Kubernetes chạy Producer.
-- **Runner Script**: `run_producer.sh` - Script tự động hóa việc deploy và nạp dữ liệu.
+- **Source Code**: `src/kafka_consumer.py` - Script Python đọc dữ liệu từ Kafka và ghi vào HDFS.
+- **Manifest**: `k8s-manifests/consumer.yaml` - Deployment Kubernetes chạy Consumer.
+- **Runner Script**: `run_consumer.sh` - Script tự động hóa việc deploy Consumer.
 
 #### Cách chạy
-Để bắt đầu quá trình đẩy dữ liệu, chạy lệnh sau:
-
-```bash
-bash run_producer.sh
-```
-
-Script này sẽ thực hiện các bước:
-1. Xóa Job cũ nếu đang chạy.
-2. Tạo ConfigMap mới từ code trong `src/kafka_producer.py`.
-3. Deploy Job lên Kubernetes.
-4. Chờ Pod sẵn sàng.
-5. Copy file `data-sources/covid_0.csv` vào Pod để kích hoạt quá trình xử lý.
-6. Hiển thị log output.
-
-**Lưu ý:**
-- Producer được cấu hình để gửi dữ liệu vào topic `covid-raw`.
-- Bạn có thể chỉnh sửa logic gửi tin (tốc độ, format) trong file `src/kafka_producer.py`.
-
-### 7.2. Xử lý hàng loạt (Batch Mode)
-Sử dụng khi cần nạp toàn bộ dữ liệu lịch sử và xử lý một lần duy nhất.
-
-#### Bước 1: Gửi dữ liệu vào Kafka
-```bash
-bash run_producer.sh
-```
-
-#### Bước 2: Lưu dữ liệu từ Kafka vào HDFS
 ```bash
 bash run_consumer.sh
 ```
 
-#### Bước 3: Chạy Spark Job xử lý Batch
-```bash
-bash run_spark_local.sh
-```
+### 7.2. Spark CronJob
+Spark CronJob định kỳ đọc dữ liệu từ HDFS, xử lý và ghi vào Elasticsearch.
 
-Spark sẽ đọc dữ liệu từ HDFS, xử lý và ghi kết quả vào Elasticsearch.
+#### Cấu trúc
+- **Source Code**: `src/spark_hdfs_to_elasticsearch.py` - Script Spark xử lý batch từ HDFS.
+- **Manifest**: `k8s-manifests/spark-cronjob.yaml` - CronJob Kubernetes.
+- **Runner Script**: `run_spark_cronjob.sh` - Script deploy CronJob.
 
-### 7.3. Xử lý luồng giả lập (Streaming Mode)
-Dùng để mô phỏng dữ liệu thời gian thực, dữ liệu được gửi theo từng ngày và xử lý liên tục.
-
-#### Bước 1: Gửi dữ liệu Streaming vào Kafka
-```bash
-bash run_producer.sh streaming
-```
-
-#### Bước 2: Khởi động Kafka Consumer ghi dữ liệu vào HDFS
-```bash
-bash run_consumer.sh
-```
-
-#### Bước 3: Tự động hóa Spark Streaming bằng CronJob
+#### Cách chạy
 ```bash
 bash run_spark_cronjob.sh
 ```
 
-Spark CronJob sẽ tự động:
+**Chu kỳ chạy mặc định: mỗi 10 phút**
 
+Spark CronJob sẽ tự động:
 * Quét dữ liệu mới trong HDFS
 * Xử lý dữ liệu
 * Cập nhật kết quả vào Elasticsearch
 
-**Chu kỳ chạy mặc định: mỗi 2 phút**
+### 7.3. Spark Stateful Streaming
+Spark Stateful Streaming xử lý dữ liệu real-time trực tiếp từ Kafka.
+
+#### Cấu trúc
+- **Source Code**: `src/spark_kafka_stateful_realtime.py` - Script Spark Streaming xử lý real-time.
+- **Manifest**: `k8s-manifests/spark-stateful-streaming.yaml` - Deployment Kubernetes.
+- **Runner Script**: `run_spark_stateful_streaming.sh` - Script deploy Streaming.
+
+#### Cách chạy
+```bash
+bash run_spark_stateful_streaming.sh
+```
+
+### 7.4. Producer Streaming
+Producer Streaming đọc file CSV và gửi dữ liệu theo từng ngày vào Kafka để mô phỏng dữ liệu thời gian thực.
+
+#### Cấu trúc
+- **Source Code**: `src/kafka_producer_streaming.py` - Script Python gửi dữ liệu theo ngày.
+- **Dữ liệu**: `data-sources/covid_0.csv` - File dữ liệu nguồn.
+- **Manifest**: `k8s-manifests/producer-streaming.yaml` - Deployment Kubernetes.
+- **Runner Script**: `run_producer.sh` - Script deploy Producer.
+
+#### Cách chạy
+```bash
+bash run_producer.sh streaming
+```
+
+Script này sẽ thực hiện các bước:
+1. Xóa Job cũ nếu đang chạy.
+2. Tạo ConfigMap mới từ code trong `src/kafka_producer_streaming.py`.
+3. Deploy Job lên Kubernetes.
+4. Chờ Pod sẵn sàng.
+5. Copy file `data-sources/covid_0.csv` vào Pod.
+6. Hiển thị log output.
+
+**Lưu ý:**
+- Producer được cấu hình để gửi dữ liệu vào topic `covid-raw`.
+- Dữ liệu được gửi theo từng ngày để mô phỏng streaming thực tế.
 
 ## 8. Quản lý tài nguyên và dọn dẹp
 
-### 8.1. Dừng Spark CronJob
+### 8.1. Xóa dữ liệu Kafka + HDFS + Elasticsearch
+Nếu chỉ muốn xóa dữ liệu mà giữ nguyên hệ thống:
+```bash
+bash clear_data.sh
+```
+
+### 8.2. Dừng Spark CronJob
 ```bash
 bash stop_spark_cronjob.sh
 ```
 
-### 8.2. Xóa toàn bộ Kubernetes Cluster (k3d)
+### 8.3. Xóa toàn bộ Kubernetes Cluster (k3d)
 ```bash
 k3d cluster delete bigdata
 ```
 
-### 8.3. Dọn dẹp tài nguyên Docker dư thừa
+### 8.4. Dọn dẹp tài nguyên Docker dư thừa
 ```bash
 docker system prune -a --volumes
 ```
-
