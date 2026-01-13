@@ -155,7 +155,7 @@ metadata:
   name: hdfs-datanode
 spec:
   serviceName: "hdfs-datanode"
-  replicas: 1
+  replicas: 2
   selector:
     matchLabels:
       app: hdfs-datanode
@@ -164,12 +164,30 @@ spec:
       labels:
         app: hdfs-datanode
     spec:
+      affinity:
+        nodeAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            nodeSelectorTerms:
+            - matchExpressions:
+              - key: node-role.kubernetes.io/control-plane
+                operator: DoesNotExist
+        podAntiAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+          - labelSelector:
+              matchExpressions:
+              - key: app
+                operator: In
+                values:
+                - hdfs-datanode
+            topologyKey: "kubernetes.io/hostname"
       containers:
       - name: datanode
         image: bde2020/hadoop-datanode:2.0.0-hadoop3.2.1-java8
         env:
         - name: CLUSTER_NAME
           value: "bigdata"
+        - name: HADOOP_OPTS
+          value: "-Xmx768m -Xms512m"
         ports:
         - containerPort: 9866
         - containerPort: 9864
@@ -194,8 +212,6 @@ spec:
       - name: hdfs-config-vol
         configMap:
           name: hdfs-config
-      nodeSelector:
-        kubernetes.io/hostname: k3d-bigdata-agent-1
   volumeClaimTemplates:
   - metadata:
       name: dn-storage
