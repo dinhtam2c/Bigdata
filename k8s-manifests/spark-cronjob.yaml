@@ -31,7 +31,7 @@ spec:
                   --total-executor-cores 1 \
                   --executor-cores 1 \
                   --driver-memory 1024m \
-                  --executor-memory 1400m \
+                  --executor-memory 1300m \
                   --conf spark.driver.host=$(hostname -i) \
                   --conf spark.driver.bindAddress=0.0.0.0 \
                   --conf spark.hadoop.fs.defaultFS=hdfs://hdfs-namenode-0.hdfs-namenode:8020 \
