@@ -45,7 +45,6 @@ def get_kafka_consumer():
             enable_auto_commit=False,
             group_id=GROUP_ID,
             value_deserializer=lambda x: json.loads(x.decode('utf-8')),
-            request_timeout_ms=20000,
             max_poll_records=BATCH_SIZE,
             session_timeout_ms=30000,
             heartbeat_interval_ms=10000,
