@@ -7,7 +7,7 @@ from typing import Iterator, Dict
 from kafka import KafkaProducer
 import logging
 
-# ==================== CONFIGURATION ====================
+
 class Config:
     """Centralized configuration management"""
     BOOTSTRAP_SERVERS = os.getenv('BOOTSTRAP_SERVERS', 'kafka:9092')
@@ -18,7 +18,7 @@ class Config:
     MAX_RETRIES = int(os.getenv('MAX_RETRIES', '3'))
     RETRY_DELAY = int(os.getenv('RETRY_DELAY', '5'))
 
-# ==================== LOGGING SETUP ====================
+
 def setup_logging():
     """Configure logging with custom format"""
     logging.basicConfig(
@@ -31,7 +31,7 @@ def setup_logging():
 
 log = setup_logging()
 
-# ==================== KAFKA CONFIGURATION ====================
+
 KAFKA_CONFIG = {
     'value_serializer': lambda x: json.dumps(x, ensure_ascii=False).encode('utf-8'),
     'linger_ms': 20,
@@ -42,7 +42,7 @@ KAFKA_CONFIG = {
     'max_in_flight_requests_per_connection': 5
 }
 
-# ==================== FILE OPERATIONS ====================
+
 def validate_file(filepath: str) -> bool:
     """
     Validate file exists and is readable
@@ -106,7 +106,7 @@ def read_csv_stream(filepath: str) -> Iterator[Dict]:
         log.error(f"Error reading CSV: {e}")
         raise
 
-# ==================== KAFKA OPERATIONS ====================
+
 def create_kafka_producer(max_retries: int = 3) -> KafkaProducer:
     """
     Create Kafka producer with retry logic
@@ -195,7 +195,7 @@ def process_and_send_data(producer: KafkaProducer, filepath: str) -> int:
         raise
 
 
-# ==================== MAIN ====================
+
 def main():
     """Main entry point"""
     log.info("=" * 60)

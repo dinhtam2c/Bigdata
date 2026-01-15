@@ -250,18 +250,14 @@ def send_to_es_index_chunked(index_name: str, id_cols: list[str], partition, chu
     flush(lines)
 
 
-# =========================
 # Tạo index RAW chỉ khi chạy raw
-# =========================
 print("Chuẩn bị Elasticsearch index...")
 if should_run("raw"):
     create_index_if_not_exists()
 else:
     print("Skip RAW index (không chạy level raw)")
 
-# =========================
 # Đọc dữ liệu từ HDFS (luôn đọc để có df_cleaned)
-# =========================
 print("\nĐang đọc dữ liệu từ HDFS...")
 df = spark.read.format("json") \
     .option("mode", "PERMISSIVE") \
@@ -291,12 +287,10 @@ df_cleaned = df.select(
 total_count = df_cleaned.count()
 print(f"Tìm thấy {total_count:,} records từ HDFS")
 
-# =========================
 # df_analysis chỉ cần khi chạy 1/23/4/5/6/7
-# =========================
 need_analysis = any(should_run(x) for x in ("1", "23", "4", "5", "6", "7"))
 if need_analysis:
-    print("\n================= PHÂN TÍCH DỮ LIỆU THÔ =================")
+    print("\nPHÂN TÍCH DỮ LIỆU THÔ")
     df_analysis = (
         df_cleaned
         .withColumn("Date_reported", F.to_date(F.col("Date_reported").cast("string"), "yyyy-MM-dd"))
@@ -307,9 +301,7 @@ else:
     df_analysis = None
     print("Skip df_analysis (không chạy levels 1..7)")
 
-# =========================
 # Mappings + settings (giữ nguyên)
-# =========================
 INDEX_SETTINGS = {"number_of_shards": 1, "number_of_replicas": 0}
 
 COUNTRY_STATS_MAPPING = {
@@ -454,9 +446,7 @@ RANKINGS_MAPPING = {
     }
 }
 
-# =========================
 # Tạo indices stats theo LEVELS (chỉ tạo cái cần)
-# =========================
 print("\nChuẩn bị Elasticsearch STATS indices...")
 if should_run("1"):
     create_index_if_not_exists_generic(ES_COUNTRY_STATS_INDEX, COUNTRY_STATS_MAPPING, INDEX_SETTINGS)
@@ -478,9 +468,7 @@ if should_run("7"):
 if should_run("4"):
     create_index_if_not_exists_generic(ES_RANKINGS_INDEX, RANKINGS_MAPPING, INDEX_SETTINGS)
 
-# =========================
 # LEVEL 1
-# =========================
 country_last = None
 country_stats_lvl1_ranked = None
 region_stats_lvl1 = None
@@ -587,9 +575,7 @@ if should_run("1"):
 
     as_of_date = country_last.agg(F.max("As_of_date").alias("as_of_date")).collect()[0]["as_of_date"]
 
-# =========================
 # LEVEL 2-3
-# =========================
 df_country_daily = None
 
 if should_run("23"):
@@ -628,9 +614,7 @@ if should_run("23"):
         .drop("Prev_MA7_new_cases", "Sum7_cases", "Sum7_deaths")
     )
 
-# =========================
 # LEVEL 4
-# =========================
 rankings = None
 
 if should_run("4"):
@@ -696,9 +680,7 @@ if should_run("4"):
 
     rankings = top_cases.unionByName(top_deaths).unionByName(top_cfr).unionByName(top_in_region)
 
-# =========================
 # LEVEL 5
-# =========================
 anomalies = None
 
 if should_run("5"):
@@ -734,9 +716,7 @@ if should_run("5"):
 
     anomalies = spikes.unionByName(negatives)
 
-# =========================
 # LEVEL 6
-# =========================
 segmentation_out = None
 
 if should_run("6"):
@@ -788,9 +768,7 @@ if should_run("6"):
         .withColumn("As_of_date", F.lit(as_of_date))
     )
 
-# =========================
 # LEVEL 7
-# =========================
 quality_out = None
 
 if should_run("7"):
@@ -826,9 +804,7 @@ if should_run("7"):
 
     quality_out = quality_global.crossJoin(neg_quality)
 
-# =========================
 # Ghi STATS theo level được chạy
-# =========================
 print("\nĐang ghi STATS theo nhóm index vào Elasticsearch...")
 
 if should_run("1"):
@@ -860,9 +836,7 @@ if should_run("4"):
     rank_sender = partial(send_to_es_index_chunked, ES_RANKINGS_INDEX, ["metric", "WHO_region", "rank"])
     rankings.rdd.map(lambda r: r.asDict()).repartition(1).foreachPartition(rank_sender)
 
-# =========================
 # In endpoints (chỉ in cái liên quan)
-# =========================
 if should_run("1"):
     print(f"Stats country: {ES_HOST}/{ES_COUNTRY_STATS_INDEX}/_count")
     print(f"Stats region : {ES_HOST}/{ES_REGION_STATS_INDEX}/_count")
@@ -882,9 +856,7 @@ if should_run("4"):
 if df_analysis is not None:
     df_analysis.unpersist()
 
-# =========================
 # RAW write chỉ khi chạy raw
-# =========================
 if should_run("raw"):
     print("\nĐang ghi dữ liệu vào Elasticsearch...")
     df_cleaned.rdd.map(lambda row: row.asDict()).repartition(1).foreachPartition(send_to_elasticsearch)
